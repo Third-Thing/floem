@@ -373,6 +373,8 @@ impl Editor {
             });
             self.lines.clear(0, None);
             self.doc.set(doc);
+            let modal = !self.cursor.get_untracked().is_insert();
+            self.cursor.set(Cursor::origin(modal));
             self.register_doc_cursor_sync();
             if let Some(styling) = styling {
                 self.style.set(styling);
@@ -1935,5 +1937,33 @@ mod tests {
 
         assert_eq!(doc.text().to_string(), "Hello world");
         assert_eq!(editor.cursor.get_untracked().offset(), 11);
+    }
+
+    #[test]
+    fn update_doc_resets_cursor_before_next_edit() {
+        let _root = TestRoot::new();
+        let cx = Scope::new();
+        let doc = Rc::new(TextDocument::new(cx, "Hello world"));
+        let style = Rc::new(SimpleStyling::new());
+        let editor = Editor::new(cx, doc, style, false);
+
+        editor.cursor.update(|cursor| {
+            cursor.set_offset(11, CursorAffinity::Backward, false, false);
+        });
+
+        let new_doc: Rc<dyn Document> = Rc::new(TextDocument::new(cx, ""));
+        editor.update_doc(new_doc.clone(), None);
+
+        assert_eq!(editor.cursor.get_untracked().offset(), 0);
+
+        new_doc.run_command(
+            &editor,
+            &Command::Edit(EditCommand::InsertTab),
+            None,
+            Default::default(),
+        );
+
+        assert_eq!(new_doc.text().to_string(), "\t");
+        assert_eq!(editor.cursor.get_untracked().offset(), 1);
     }
 }
