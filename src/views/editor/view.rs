@@ -1474,6 +1474,16 @@ fn editor_content(
         // TODO: don't assume line-height is constant
         let line_height = f64::from(editor.line_height(0));
 
+        // Eagerly create text layouts up to the caret line so that
+        // vline_of_rvline returns an accurate position. Without this, an edit
+        // that clears the text-layout cache (via cache_rev) leaves
+        // find_vline_of_line_backwards walking with a mostly-empty cache,
+        // counting each uncached line as 1 visual line. Wrapped lines above
+        // the caret then get undercounted, the caret rect ends up at the
+        // wrong y, and the Scroll container jumps the viewport.
+        for l in 0..=rvline.line {
+            editor.text_layout(l);
+        }
         // TODO: is there a good way to avoid the calculation of the vline here?
         let vline = editor.vline_of_rvline(rvline);
         let rect =
